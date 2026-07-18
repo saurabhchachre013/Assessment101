@@ -1,0 +1,34 @@
+[
+  {
+    "ParameterKey": "ProjectName",
+    "ParameterValue": "videostream"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "prod"
+  },
+  {
+    "ParameterKey": "DBUsername",
+    "ParameterValue": "dbadmin"
+  },
+  {
+    "ParameterKey": "ContainerImage",
+    "ParameterValue": "123456789012.dkr.ecr.us-east-1.amazonaws.com/videostream:latest"
+  },
+  {
+    "ParameterKey": "DBInstanceClass",
+    "ParameterValue": "db.t3.medium"
+  },
+  {
+    "ParameterKey": "TaskCpu",
+    "ParameterValue": "512"
+  },
+  {
+    "ParameterKey": "TaskMemory",
+    "ParameterValue": "1024"
+  },
+  {
+    "ParameterKey": "DesiredCount",
+    "ParameterValue": "2"
+  }
+]
