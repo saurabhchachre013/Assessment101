@@ -1,4 +1,4 @@
-name: Frontend CI/CD Pipeline
+name: Test AWS OIDC
 
 on:
   push:
@@ -10,29 +10,17 @@ permissions:
   contents: read
 
 jobs:
-  build-and-push:
-    name: Build and Push Docker Image
+  test:
     runs-on: ubuntu-latest
-    #environment: development
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4 
+      - uses: actions/checkout@v4
 
-      - name: Print GitHub Context
-        run: |
-          echo "Repository: ${{ github.repository }}"
-          echo "Ref: ${{ github.ref }}"
-
-      - name: Dump OIDC Token Claims
-        uses: github/actions-oidc-debugger@v1
-      
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: us-east-1
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2      
+      - name: Verify Identity
+        run: aws sts get-caller-identity
