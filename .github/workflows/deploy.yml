@@ -21,9 +21,9 @@ jobs:
 
       - name: Print GitHub Context
         run: |
-        echo "Repository: ${{ github.repository }}"
-        echo "Ref: ${{ github.ref }}"
-        
+          echo "Repository: ${{ github.repository }}"
+          echo "Ref: ${{ github.ref }}"
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
