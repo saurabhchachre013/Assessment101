@@ -8,7 +8,7 @@
     "ParameterValue": "prod"
   },
   {
-    "ParameterKey": "DBUsername",
+    "ParameterKey": "DBusername",
     "ParameterValue": "dbadmin"
   },
   {
