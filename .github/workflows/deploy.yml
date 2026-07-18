@@ -23,4 +23,4 @@ jobs:
           aws-region: us-east-1
 
       - name: Verify Identity
-        run: aws sts get-caller-identity
+        run: aws sts get-caller-identity #wd
