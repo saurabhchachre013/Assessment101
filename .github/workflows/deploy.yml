@@ -14,38 +14,31 @@ jobs:
     name: Build and push docker image to ECR
     runs-on: ubuntu-latest
     outputs:
-          image-uri: ${{ steps.image.outputs.uri }}
+      image-uri: ${{ steps.image.outputs.uri }}
     steps:
-      # Checkout the source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Configurationj AWS Creds
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{secrets.AWS_ROLE_ARN}}
-          aws-region: ${{secrets.AWS_REGION}}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      # ECR Login
       - name: Login to ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Store Image URI
       - name: Set Image URI
         id: image
         run: |
           echo "IMAGE_URI=${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_ENV
           echo "uri=${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_OUTPUT
 
-
-      # Build Docker Image
       - name: Build Docker Image
         run: |
           docker build -f videostream-frontend/Dockerfile -t $IMAGE_URI videostream-frontend
 
-      # Scan Docker Image
       - name: Scan Docker Image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -57,16 +50,14 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
-      # # Tag Docker Image
-      # - name: Tag Docker Image
-      #   run: |
-      #     docker tag ${{secrets.ECR_REPOSITORY}}:${{github.sha}} \
-      #     ${{secrets.AWS_ACCOUNT}}.dkr.ecr.${{secrets.AWS_REGION}}.amazonaws.com/${{secrets.ECR_REPOSITORY}}:${{github.sha}}
-
-      # Push Docker Image to ECR
       - name: Push Docker Image to ECR
         run: |
           docker push $IMAGE_URI
+
+      - name: Verify image URI output
+        run: |
+          echo "Image built and pushed: ${{ steps.image.outputs.uri }}"
+
   deploy-dev:
     name: Deploy to Development
     needs: build-and-push
@@ -76,20 +67,28 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
- 
+
+      - name: Verify image URI received
+        run: |
+          echo "Image URI from build job: ${{ needs.build-and-push.outputs.image-uri }}"
+          if [ -z "${{ needs.build-and-push.outputs.image-uri }}" ]; then
+            echo "::error::image-uri output is empty - build-and-push did not set it correctly"
+            exit 1
+          fi
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
- 
+
       - name: Download current task definition
         run: |
           aws ecs describe-task-definition \
             --task-definition videostream-dev-task \
             --query 'taskDefinition' \
             --output json > task-definition-dev.json
- 
+
       - name: Fill in new image
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -97,7 +96,7 @@ jobs:
           task-definition: task-definition-dev.json
           container-name: Streaming-App
           image: ${{ needs.build-and-push.outputs.image-uri }}
- 
+
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
@@ -105,7 +104,7 @@ jobs:
           service: videostream-dev
           cluster: videostream-dev
           wait-for-service-stability: true
- 
+
   deploy-staging:
     name: Deploy to Staging
     needs: [build-and-push, deploy-dev]
@@ -115,20 +114,28 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
- 
+
+      - name: Verify image URI received
+        run: |
+          echo "Image URI from build job: ${{ needs.build-and-push.outputs.image-uri }}"
+          if [ -z "${{ needs.build-and-push.outputs.image-uri }}" ]; then
+            echo "::error::image-uri output is empty - build-and-push did not set it correctly"
+            exit 1
+          fi
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
- 
+
       - name: Download current task definition
         run: |
           aws ecs describe-task-definition \
             --task-definition videostream-stag-task \
             --query 'taskDefinition' \
             --output json > task-definition-stag.json
- 
+
       - name: Fill in new image
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -136,7 +143,7 @@ jobs:
           task-definition: task-definition-stag.json
           container-name: Streaming-App
           image: ${{ needs.build-and-push.outputs.image-uri }}
- 
+
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
@@ -144,4 +151,3 @@ jobs:
           service: videostream-stag
           cluster: videostream-stag
           wait-for-service-stability: true
-   
