@@ -94,7 +94,7 @@ jobs:
             --stack-name videostream-dev \
             --template-file infracode/stack.yml \
             --parameter-overrides file://infracode/dev.json \
-            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset
       - name: Wait for ECS service to stabilise
         run: |
@@ -128,7 +128,7 @@ jobs:
             --stack-name videostream-stag \
             --template-file infracode/stack.yml \
             --parameter-overrides file://infracode/stag.json \
-            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset
 
       - name: Wait for ECS service to stabilise
