@@ -121,6 +121,7 @@ jobs:
       - name: Inject image URI into parameter file
         run: |
           sed -i 's|"ParameterValue": ".*ecr.*"|"ParameterValue": "${{ needs.build-and-push.outputs.image-uri }}"|' infracode/stag.json
+          cat infracode/dev.json
       
       - name: Deploy CloudFormation stack (staging)
         run: |
