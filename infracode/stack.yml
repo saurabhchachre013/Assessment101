@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Transform: AWS::SecretsManager-2024-09-16
+# Transform: AWS::SecretsManager-2024-09-16
 
 Description: > 
   We are going to create an video streaming platform here. using this we are going to create following resources
@@ -389,21 +389,21 @@ Resources:
         - Key: Project
           Value: !Ref ProjectName
 
-  DatabaseSecretSchedule:
-    Type: AWS::SecretsManager::RotationSchedule
-    DependsOn: RDSDBInstance
-    Properties:
-      SecretId: !Ref DatabaseSecrets
-      HostedRotationLambda:
-        RotationType: PostgreSQLSingleUser      
-        RotationLambdaName: !Sub ${ProjectName}-${Environment}-secrets-rotation-function
-        VpcSecurityGroupIds: !Ref LambdaSG
-        VpcSubnetIds: !Join
-          - ','
-          - - !Ref PrivateSubnet1
-            - !Ref PrivateSubnet2
-      RotationRules:
-        AutomaticallyAfterDays: 90
+  # DatabaseSecretSchedule:
+  #   Type: AWS::SecretsManager::RotationSchedule
+  #   DependsOn: RDSDBInstance
+  #   Properties:
+  #     SecretId: !Ref DatabaseSecrets
+  #     HostedRotationLambda:
+  #       RotationType: PostgreSQLSingleUser      
+  #       RotationLambdaName: !Sub ${ProjectName}-${Environment}-secrets-rotation-function
+  #       VpcSecurityGroupIds: !Ref LambdaSG
+  #       VpcSubnetIds: !Join
+  #         - ','
+  #         - - !Ref PrivateSubnet1
+  #           - !Ref PrivateSubnet2
+  #     RotationRules:
+  #       AutomaticallyAfterDays: 90
 
   DatabaseSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
