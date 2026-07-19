@@ -95,7 +95,7 @@ function App() {
       </main>
 
       <footer className="footer">
-        <p>StreamFlow · Deployed on AWS ECS Fargate · Environment: {process.env.REACT_APP_ENV || 'production'}</p>
+        <p>StreamFlow · Deployed on AWS ECS Fargate · Environment: {process.env.REACT_APP_ENV || 'Development'}</p>
       </footer>
     </div>
   );

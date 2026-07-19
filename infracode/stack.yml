@@ -1,4 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
+
+Transform: AWS::SecretsManager-2024-09-16
+
 Description: > 
   We are going to create an video streaming platform here. using this we are going to create following resources
   VPC,2 public and 2 private subnets, IGW, NATGateway, Security groups, Load balancer, ECS service, ECR repo, database, secrets, lambda function.
@@ -19,6 +22,26 @@ Parameters:
       - prod
     Description: Infra Environment
 
+  VpcCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+
+  PublicSubnet1CIDR:
+    Type: String
+    Default: 10.0.1.0/24
+
+  PublicSubnet2CIDR:
+    Type: String
+    Default: 10.0.2.0/24
+
+  PrivateSubnet1CIDR:
+    Type: String
+    Default: 10.0.3.0/24
+
+  PrivateSubnet2CIDR:
+    Type: String
+    Default: 10.0.4.0/24
+
   DBusername:
     Type: String
     Description: Database user
@@ -27,11 +50,11 @@ Parameters:
     Type: String
     Description: ECR image URI
 
-  DBinstanceclass:
+  DBInstanceClass:
     Type: String
     AllowedValues:
       - db.t3.medium
-      - db.r6g.larg
+      - db.r6g.large
       - db.t3.micro
     Description: DB instance type based on the Environment
 
@@ -67,7 +90,7 @@ Mappings:
 #Condition-------------------------------------------------------------
 
 Conditions:
-IsProd: !Equals [!Ref Environment, prod]
+  IsProd: !Equals [!Ref Environment, prod]
 
 #Resources-------------------------------------------------------------
 
@@ -111,7 +134,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+          Value: !Sub ${Environment} Public Subnet (AZ1)
         - Key: Project
           Value: !Ref ProjectName
 
@@ -124,7 +147,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+          Value: !Sub ${Environment} Public Subnet (AZ2)
         - Key: Project
           Value: !Ref ProjectName
 
@@ -137,7 +160,7 @@ Resources:
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+          Value: !Sub ${Environment} Private Subnet (AZ1)
         - Key: Project
           Value: !Ref ProjectName
 
@@ -150,7 +173,7 @@ Resources:
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+          Value: !Sub ${Environment} Private Subnet (AZ2)
         - Key: Project
           Value: !Ref ProjectName
 
@@ -171,12 +194,6 @@ Resources:
     Properties:
       AllocationId: !GetAtt NatGateway1EIP.AllocationId
       SubnetId: !Ref PublicSubnet1
-
-  NatGateway2:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt NatGateway2EIP.AllocationId
-      SubnetId: !Ref PublicSubnet2
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -214,24 +231,39 @@ Resources:
         - Key: Name
           Value: !Sub ${Environment} Private Routes AZ1
 
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment} Private Routes AZ2
+
   DefaultPrivateRoute1:
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref PrivateRouteTable1
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref  NatGateway1
+      NatGatewayId: !Ref  NatGateway1
+
+  DefaultPrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
 
   PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref PrivateRouteTable
+      RouteTableId: !Ref PrivateRouteTable1
       SubnetId: !Ref PrivateSubnet1
 
   PrivateSubnet2RouteTableAssociation:
 
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref PrivateRouteTable
+      RouteTableId: !Ref PrivateRouteTable2
       SubnetId: !Ref PrivateSubnet2
 
   #SecurityGroups-------------------------------------------------------------
@@ -245,7 +277,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
-          DestinationSecurityGroupId: !Ref ECSSG
+          CidrIp: 0.0.0.0/0
       SecurityGroupIngress: 
         - IpProtocol: tcp
           FromPort: 80
@@ -275,7 +307,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          DestinationSecurityGroupId: !Ref DatabaseSG
+          CidrIp: 0.0.0.0/0
       SecurityGroupIngress: 
         - IpProtocol: tcp
           FromPort: 8080
@@ -322,7 +354,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          DestinationSecurityGroupId: !Ref DatabaseSG
+          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub ${ProjectName}-${Environment}-Lambda-SG
@@ -350,7 +382,7 @@ Resources:
 
   DatabaseSecretSchedule:
     Type: AWS::SecretsManager::RotationSchedule
-    DependsOn: DBInstance
+    DependsOn: RDSDBInstance
     Properties:
       SecretId: !Ref DatabaseSecrets
       HostedRotationLambda:
@@ -377,31 +409,27 @@ Resources:
         - Key: Project
           Value: !Ref ProjectName
 
-  DatbaseCluster:
-    Type: AWS::RDS::DBCluster
-    
-    Properties:
-      
-      DBClusterParameterGroupName:
-        Ref: RDSDBClusterParameterGroup
   RDSDBInstance:
     Type: AWS::RDS::DBInstance
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+    # DeletionPolicy: Retain
+    # UpdateReplacePolicy: Retain
     Properties:
       DBInstanceIdentifier: !Sub ${ProjectName}-${Environment}-postgres-instance
-      DBName: !Sub ${ProjectName}-database
+      DBName: !Sub ${ProjectName}${Environment}
       Engine: postgres
       EngineVersion: 17.7
       MasterUsername: !Sub '{{resolve:secretsmanager:${DatabaseSecrets}:SecretString:username}}'
       MasterUserPassword: !Sub '{{resolve:secretsmanager:${DatabaseSecrets}:SecretString:password}}'
-      DBInstanceClass: !Ref DBinstanceclass
-      AllocatedStorage: '5'
-      MaxAllocatedStorage: 20
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: 20
+      MaxAllocatedStorage: 100
       StorageType: gp3
       StorageEncrypted: true
+      MonitoringInterval: 60
+      MonitoringRoleArn: !GetAtt RDSMonitoringRole.Arn
       DBSubnetGroupName: !Ref DatabaseSubnetGroup
-      VpcSecurityGroups: !Ref DatabaseSG
+      VPCSecurityGroups: 
+        - !Ref DatabaseSG
       PubliclyAccessible: false
       Tags:
         - Key: Name
@@ -516,18 +544,20 @@ Resources:
       DefaultCapacityProviderStrategy:
         - CapacityProvider: FARGATE
           Weight: 1
-    Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Project
-          Value: !Ref ProjectName
+      Tags:
+          - Key: Environment
+            Value: !Ref Environment
+          - Key: Project
+            Value: !Ref ProjectName
 
-  ECStaskdefinition:
+  ECSTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      ExecutionRoleArn: !Getatt ECSExecutionRole.Arn
-      TaskRoleArn: !GetAtt ECSTaskRole
+      ExecutionRoleArn: !GetAtt ECSExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
       NetworkMode: awsvpc
+      Cpu: !Ref TaskCpu 
+      Memory: !Ref TaskMemory  
       RequiresCompatibilities:
         - FARGATE
       Family: !Sub ${ProjectName}-${Environment}-task
@@ -542,7 +572,7 @@ Resources:
             - Name: ENV
               Value: !Ref Environment
             - Name: DB_HOST
-              Value: !GetAtt DBInstance.Endpoint.Address
+              Value: !GetAtt RDSDBInstance.Endpoint.Address
             - Name: DB_PORT
               Value: '5432'
             - Name: DB_NAME
@@ -553,10 +583,11 @@ Resources:
             - Name: DB_PASSWORD
               ValueFrom: !Sub '${DatabaseSecrets}:password::'
           LogConfiguration:
-          LogDriver: awslogs
-          Options:
-            awslogs-group: !Ref LogGroup
-            awslogs-region: !Ref AWS::Region    
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api   
           HealthCheck:
             Command:
               - CMD-SHELL
@@ -566,11 +597,10 @@ Resources:
             StartPeriod: 60
             Retries: 3
       Tags:
-      - Key: Environment
-        Value: !Ref Environment
-      - Key: Project
-        Value: !Ref ProjectName
-  
+          - Key: Environment
+            Value: !Ref Environment
+          - Key: Project
+            Value: !Ref ProjectName
   ECSService:
     Type: AWS::ECS::Service
     Properties:
@@ -591,13 +621,13 @@ Resources:
         - ContainerName: Streaming-App
           ContainerPort: 8080
           TargetGroupArn: !Ref TargetGroup
-      DeplyomentConfiguration:
+      DeploymentConfiguration:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
         DeploymentCircuitBreaker:
           Enable: true
           Rollback: true
-      EnableExecutionCommand: !If [IsProd, false, true]
+      EnableExecuteCommand: !If [IsProd, false, true]
       Tags:
       - Key: Environment
         Value: !Ref Environment
@@ -620,7 +650,7 @@ Resources:
         - Key: idle_timeout.timeout_seconds
           Value: '60'
         - Key: access_logs.s3.enabled
-          Value: 'true'
+          Value: 'false'
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -763,7 +793,7 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-${Environment}-db-endpoint
  
-  DatabaseSecrestArn:
+  DatabaseSecretArn:
     Value: !Ref DatabaseSecrets
     Export:
       Name: !Sub ${ProjectName}-${Environment}-db-secret-arn

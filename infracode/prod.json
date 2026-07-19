@@ -8,12 +8,32 @@
     "ParameterValue": "prod"
   },
   {
+    "ParameterKey": "VpcCIDR",
+    "ParameterValue": "10.0.0.0/16"
+  },
+  {
+    "ParameterKey": "PublicSubnet1CIDR",
+    "ParameterValue": "10.0.1.0/24"
+  },
+  {
+    "ParameterKey": "PublicSubnet2CIDR",
+    "ParameterValue": "10.0.2.0/24"
+  },
+  {
+    "ParameterKey": "PrivateSubnet1CIDR",
+    "ParameterValue": "10.0.3.0/24"
+  },
+  {
+    "ParameterKey": "PrivateSubnet2CIDR",
+    "ParameterValue": "10.0.4.0/24"
+  },
+  {
     "ParameterKey": "DBusername",
     "ParameterValue": "dbadmin"
   },
   {
     "ParameterKey": "ContainerImage",
-    "ParameterValue": "123456789012.dkr.ecr.us-east-1.amazonaws.com/videostream:latest"
+    "ParameterValue": "414772274895.dkr.ecr.us-east-1.amazonaws.com/streamflow-frontend:9f3ce4fd2eb411f57ffc2a280bf6a86e94670f98"
   },
   {
     "ParameterKey": "DBInstanceClass",
