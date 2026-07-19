@@ -33,7 +33,7 @@
   },
   {
     "ParameterKey": "ContainerImage",
-    "ParameterValue": "414772274895.dkr.ecr.us-east-1.amazonaws.com/streamflow-frontend:9f3ce4fd2eb411f57ffc2a280bf6a86e94670f98"
+    "ParameterValue": "${{ needs.build-and-push.outputs.image-uri }}"
   },
   {
     "ParameterKey": "DBInstanceClass",

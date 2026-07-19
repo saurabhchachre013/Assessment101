@@ -67,7 +67,6 @@ jobs:
       - name: Push Docker Image to ECR
         run: |
           docker push $IMAGE_URI
-
   deploy-dev:
     name: Deploy to Development
     needs: build-and-push
@@ -77,31 +76,36 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+ 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
-      
-      - name: Inject image URI into parameter file
+ 
+      - name: Download current task definition
         run: |
-          sed -i 's|"ParameterValue": ".*ecr.*"|"ParameterValue": "${{ needs.build-and-push.outputs.image-uri }}"|' infracode/dev.json
-
-      - name: Deploy CloudFormation stack (dev)
-        run: |
-          aws cloudformation deploy \
-            --stack-name videostream-dev \
-            --template-file infracode/stack.yml \
-            --parameter-overrides file://infracode/dev.json \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --no-fail-on-empty-changeset
-      - name: Wait for ECS service to stabilise
-        run: |
-          aws ecs wait services-stable \
-            --cluster videostream-dev \
-            --services videostream-dev
-
+          aws ecs describe-task-definition \
+            --task-definition videostream-dev-task \
+            --query 'taskDefinition' \
+            --output json > task-definition-dev.json
+ 
+      - name: Fill in new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition-dev.json
+          container-name: Streaming-App
+          image: ${{ needs.build-and-push.outputs.image-uri }}
+ 
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: videostream-dev
+          cluster: videostream-dev
+          wait-for-service-stability: true
+ 
   deploy-staging:
     name: Deploy to Staging
     needs: [build-and-push, deploy-dev]
@@ -111,29 +115,33 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+ 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Inject image URI into parameter file
+ 
+      - name: Download current task definition
         run: |
-          sed -i 's|"ParameterValue": ".*ecr.*"|"ParameterValue": "${{ needs.build-and-push.outputs.image-uri }}"|' infracode/stag.json
-          cat infracode/dev.json
-      
-      - name: Deploy CloudFormation stack (staging)
-        run: |
-          aws cloudformation deploy \
-            --stack-name videostream-stag \
-            --template-file infracode/stack.yml \
-            --parameter-overrides file://infracode/stag.json \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --no-fail-on-empty-changeset
-
-      - name: Wait for ECS service to stabilise
-        run: |
-          aws ecs wait services-stable \
-            --cluster videostream-stag \
-            --services videostream-stag                   
+          aws ecs describe-task-definition \
+            --task-definition videostream-stag-task \
+            --query 'taskDefinition' \
+            --output json > task-definition-stag.json
+ 
+      - name: Fill in new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition-stag.json
+          container-name: Streaming-App
+          image: ${{ needs.build-and-push.outputs.image-uri }}
+ 
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: videostream-stag
+          cluster: videostream-stag
+          wait-for-service-stability: true
+   
