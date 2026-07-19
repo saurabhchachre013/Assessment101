@@ -14,49 +14,51 @@ jobs:
     name: Build and push docker image to ECR
     runs-on: ubuntu-latest
     outputs:
-      image-uri: ${{ steps.image.outputs.uri }}
+      image: ${{ steps.build-image.outputs.image }}
+    env:
+      ECR_REPOSITORY: streamflow-frontend
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login to ECR
-        id: ecr-login
+      - name: Login to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set Image URI
-        id: image
+      - name: Build image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "IMAGE_URI=${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_ENV
-          echo "uri=${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          docker build -f videostream-frontend/Dockerfile \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            videostream-frontend
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Build Docker Image
-        run: |
-          docker build -f videostream-frontend/Dockerfile -t $IMAGE_URI videostream-frontend
-
-      - name: Scan Docker Image
+      - name: Scan image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
-          image-ref: ${{ env.IMAGE_URI }}
+          image-ref: ${{ steps.build-image.outputs.image }}
           format: table
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
-      - name: Push Docker Image to ECR
+      - name: Push image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker push $IMAGE_URI
-
-      - name: Verify image URI output
-        run: |
-          echo "Image built and pushed: ${{ steps.image.outputs.uri }}"
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
   deploy-dev:
     name: Deploy to Development
@@ -65,45 +67,38 @@ jobs:
     environment:
       name: development
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify image URI received
-        run: |
-          echo "Image URI from build job: ${{ needs.build-and-push.outputs.image-uri }}"
-          if [ -z "${{ needs.build-and-push.outputs.image-uri }}" ]; then
-            echo "::error::image-uri output is empty - build-and-push did not set it correctly"
-            exit 1
-          fi
-
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Download current task definition
+      - name: Set image in parameter file
         run: |
-          aws ecs describe-task-definition \
-            --task-definition videostream-dev-task \
-            --query 'taskDefinition' \
-            --output json > task-definition-dev.json
+          python3 -c "
+          import json
+          path = 'infracode/dev.json'
+          with open(path) as f:
+              params = json.load(f)
+          for p in params:
+              if p['ParameterKey'] == 'ContainerImage':
+                  p['ParameterValue'] = '${{ needs.build-and-push.outputs.image }}'
+          with open(path, 'w') as f:
+              json.dump(params, f, indent=2)
+          "
+          cat infracode/dev.json
 
-      - name: Fill in new image
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition-dev.json
-          container-name: Streaming-App
-          image: ${{ needs.build-and-push.outputs.image-uri }}
-
-      - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: videostream-dev
-          cluster: videostream-dev
-          wait-for-service-stability: true
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name videostream-dev \
+            --template-file infracode/stack.yml \
+            --parameter-overrides file://infracode/dev.json \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
 
   deploy-staging:
     name: Deploy to Staging
@@ -112,42 +107,35 @@ jobs:
     environment:
       name: staging
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify image URI received
-        run: |
-          echo "Image URI from build job: ${{ needs.build-and-push.outputs.image-uri }}"
-          if [ -z "${{ needs.build-and-push.outputs.image-uri }}" ]; then
-            echo "::error::image-uri output is empty - build-and-push did not set it correctly"
-            exit 1
-          fi
-
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Download current task definition
+      - name: Set image in parameter file
         run: |
-          aws ecs describe-task-definition \
-            --task-definition videostream-stag-task \
-            --query 'taskDefinition' \
-            --output json > task-definition-stag.json
+          python3 -c "
+          import json
+          path = 'infracode/stag.json'
+          with open(path) as f:
+              params = json.load(f)
+          for p in params:
+              if p['ParameterKey'] == 'ContainerImage':
+                  p['ParameterValue'] = '${{ needs.build-and-push.outputs.image }}'
+          with open(path, 'w') as f:
+              json.dump(params, f, indent=2)
+          "
+          cat infracode/stag.json
 
-      - name: Fill in new image
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition-stag.json
-          container-name: Streaming-App
-          image: ${{ needs.build-and-push.outputs.image-uri }}
-
-      - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: videostream-stag
-          cluster: videostream-stag
-          wait-for-service-stability: true
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name videostream-stag \
+            --template-file infracode/stack.yml \
+            --parameter-overrides file://infracode/stag.json \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
