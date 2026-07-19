@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  Build and Push:
+  Build-and-Push:
     name: Build and push docker image to ECR
     runs-on: ubuntu-latest
 
