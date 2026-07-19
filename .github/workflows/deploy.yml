@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  Build-and-Push:
+  build-and-push:
     name: Build and push docker image to ECR
     runs-on: ubuntu-latest
 
@@ -23,7 +23,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          assumedrole: ${{secrets.AWS_ROLE_ARN}}
+          role-to-assume: ${{secrets.AWS_ROLE_ARN}}
           aws-region: ${{secrets.AWS_REGION}}
 
       # ECR Login
