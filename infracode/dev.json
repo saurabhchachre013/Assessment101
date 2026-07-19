@@ -20,6 +20,10 @@
     "ParameterValue": "10.0.2.0/24"
   },
   {
+    "ParameterKey": "ContainerImage",
+    "ParameterValue": "414772274895.dkr.ecr.us-east-1.amazonaws.com/streamflow-frontend:716c64740315c3dad167444bf35f6ee020825916"
+  },
+  {
     "ParameterKey": "PrivateSubnet1CIDR",
     "ParameterValue": "10.0.3.0/24"
   },
@@ -31,10 +35,7 @@
     "ParameterKey": "DBusername",
     "ParameterValue": "dbadmin"
   },
-  {
-    "ParameterKey": "ContainerImage",
-    "ParameterValue": "${{ needs.build-and-push.outputs.image-uri }}"
-  },
+
   {
     "ParameterKey": "DBInstanceClass",
     "ParameterValue": "db.t3.micro"
