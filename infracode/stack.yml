@@ -78,7 +78,7 @@ Mappings:
       MultiAZ: false
       DeletionProtection: false
       LogRetentionDays: 7
-    staging:
+    stag:
       MultiAZ: false
       DeletionProtection: false
       LogRetentionDays: 14
@@ -304,10 +304,6 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          CidrIp: 0.0.0.0/0
       SecurityGroupIngress: 
         - IpProtocol: tcp
           FromPort: 8080
@@ -319,17 +315,30 @@ Resources:
         - Key: Project
           Value: !Ref ProjectName
       VpcId: !Ref VPC
+  ECSToDatabaseEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref ECSSG
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      DestinationSecurityGroupId: !Ref DatabaseSG
+
+  DatabaseFromECSIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DatabaseSG
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref ECSSG
 
   DatabaseSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Database-SG
       GroupName: !Sub ${ProjectName}-${Environment}-database-SG
-      SecurityGroupIngress: 
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          SourceSecurityGroupId: !Ref ECSSG
+      SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
@@ -567,7 +576,15 @@ Resources:
           PortMappings:
             - ContainerPort: 8080
               Protocol: tcp
-          Essential: true    
+          Essential: true
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - wget -q --spider http://localhost:8080/health || exit 1
+            Interval: 30
+            Timeout: 5
+            StartPeriod: 60
+            Retries: 3    
           Environment:
             - Name: ENV
               Value: !Ref Environment
@@ -576,7 +593,7 @@ Resources:
             - Name: DB_PORT
               Value: '5432'
             - Name: DB_NAME
-              Value: !Sub ${ProjectName}-database
+              Value: !Sub ${ProjectName}${Environment}
           Secrets:
             - Name: DB_USERNAME
               ValueFrom: !Sub '${DatabaseSecrets}:username::'
@@ -588,14 +605,7 @@ Resources:
               awslogs-group: !Ref LogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: api   
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - curl -f http://localhost:8080/health || exit 1
-            Interval: 30
-            Timeout: 5
-            StartPeriod: 60
-            Retries: 3
+
       Tags:
           - Key: Environment
             Value: !Ref Environment
@@ -695,7 +705,7 @@ Resources:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
       MaxCapacity: 10
-      MinCapacity: 2
+      MinCapacity: !If [IsProd, 2, 0]
       ResourceId: !Sub service/${ECSCluster}/${ECSService.Name}
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs

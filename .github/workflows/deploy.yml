@@ -13,7 +13,8 @@ jobs:
   build-and-push:
     name: Build and push docker image to ECR
     runs-on: ubuntu-latest
-
+    outputs:
+          image-uri: ${{ steps.image.outputs.uri }}
     steps:
       # Checkout the source code
       - name: Checkout repository
@@ -33,8 +34,10 @@ jobs:
 
       # Store Image URI
       - name: Set Image URI
+        id: image
         run: |
           echo "IMAGE_URI=${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_ENV
+          echo "uri=${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_OUTPUT
 
 
       # Build Docker Image
@@ -64,3 +67,66 @@ jobs:
       - name: Push Docker Image to ECR
         run: |
           docker push $IMAGE_URI
+
+  deploy-dev:
+    name: Deploy to Development
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy CloudFormation stack (dev)
+        run: |
+          aws cloudformation deploy \
+            --stack-name videostream-dev \
+            --template-file infracode/stack.yml \
+            --parameter-overrides file://infracode/dev.json \
+              ContainerImage="${{ needs.build-and-push.outputs.image-uri }}" \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --no-fail-on-empty-changeset
+      - name: Wait for ECS service to stabilise
+        run: |
+          aws ecs wait services-stable \
+            --cluster videostream-dev \
+            --services videostream-dev
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [build-and-push, deploy-dev]
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy CloudFormation stack (staging)
+        run: |
+          aws cloudformation deploy \
+            --stack-name videostream-stag \
+            --template-file infracode/stack.yml \
+            --parameter-overrides file://infracode/stag.json \
+              ContainerImage="${{ needs.build-and-push.outputs.image-uri }}" \
+            --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --no-fail-on-empty-changeset
+
+      - name: Wait for ECS service to stabilise
+        run: |
+          aws ecs wait services-stable \
+            --cluster videostream-stag \
+            --services videostream-stag                   
