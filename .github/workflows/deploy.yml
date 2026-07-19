@@ -1,4 +1,4 @@
-name: Test AWS OIDC
+name: Frontend CI/CD pipeline
 
 on:
   push:
@@ -10,25 +10,39 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  Build and Push:
+    name: Build and push docker image to ECR
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Print OIDC token claims
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const token = await core.getIDToken("sts.amazonaws.com");
-            const payload = JSON.parse(
-              Buffer.from(token.split(".")[1], "base64url").toString()
-            );
-            console.log(JSON.stringify(payload, null, 2));
+      # Checkout the source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Configurationj AWS Creds
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1
+          assumedrole: ${{secrets.AWS_ROLE_ARN}}
+          aws-region: ${{secrets.AWS_REGION}}
 
-      - name: Verify Identity
-        run: aws sts get-caller-identity #wd
+      # ECR Login
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Build Docker Image
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{secrets.ECR_REPOSITORY}}:${{github.sha}} .
+
+      # Tag Docker Image
+      - name: Tag Docker Image
+        run: |
+          docker tag ${{secrets.ECR_REPOSITORY}}:${{github.sha}} \
+          ${{secrets.AWS_ACCOUNT}}.dkr.ecr.${{secrets.AWS_REGION}}.amazonaws.com/${{secrets.ECR_REPOSITORY}}:${{github.sha}}
+
+      # Push Docker Image to ECR
+      - name: Push Docker Image to ECR
+        run: |
+          docker push ${{secrets.AWS_ACCOUNT}}.dkr.ecr.${{secrets.AWS_REGION}}.amazonaws.com/${{secrets.ECR_REPOSITORY}}:${{github.sha}}
