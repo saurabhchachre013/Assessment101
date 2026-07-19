@@ -9,14 +9,13 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  ECR_REPOSITORY_URI: 414772274895.dkr.ecr.us-east-1.amazonaws.com/streamflow-frontend
+
 jobs:
   build-and-push:
     name: Build and push docker image to ECR
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.build-image.outputs.image }}
-    env:
-      ECR_REPOSITORY: streamflow-frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,25 +27,19 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build image
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -f videostream-frontend/Dockerfile \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t ${{ env.ECR_REPOSITORY_URI }}:${{ github.sha }} \
             videostream-frontend
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Scan image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
-          image-ref: ${{ steps.build-image.outputs.image }}
+          image-ref: ${{ env.ECR_REPOSITORY_URI }}:${{ github.sha }}
           format: table
           exit-code: '1'
           ignore-unfixed: true
@@ -54,11 +47,8 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Push image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push ${{ env.ECR_REPOSITORY_URI }}:${{ github.sha }}
 
   deploy-dev:
     name: Deploy to Development
@@ -69,9 +59,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Debug needs output
-        run: echo "RECEIVED IMAGE = '${{ needs.build-and-push.outputs.image }}'"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -88,7 +75,7 @@ jobs:
               params = json.load(f)
           for p in params:
               if p['ParameterKey'] == 'ContainerImage':
-                  p['ParameterValue'] = '${{ needs.build-and-push.outputs.image }}'
+                  p['ParameterValue'] = '${{ env.ECR_REPOSITORY_URI }}:${{ github.sha }}'
           with open(path, 'w') as f:
               json.dump(params, f, indent=2)
           "
@@ -128,7 +115,7 @@ jobs:
               params = json.load(f)
           for p in params:
               if p['ParameterKey'] == 'ContainerImage':
-                  p['ParameterValue'] = '${{ needs.build-and-push.outputs.image }}'
+                  p['ParameterValue'] = '${{ env.ECR_REPOSITORY_URI }}:${{ github.sha }}'
           with open(path, 'w') as f:
               json.dump(params, f, indent=2)
           "
