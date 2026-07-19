@@ -34,7 +34,7 @@ jobs:
       # Build Docker Image
       - name: Build Docker Image
         run: |
-          docker build -t ${{secrets.ECR_REPOSITORY}}:${{github.sha}} .
+          docker build -f videostream-frontend/Dockerfile -t ${{secrets.ECR_REPOSITORY}}:${{github.sha}} videostream-frontend          
 
       # Tag Docker Image
       - name: Tag Docker Image
