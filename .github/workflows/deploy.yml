@@ -83,6 +83,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Inject image URI into parameter file
+        run: |
+          sed -i 's|"ParameterValue": ".*ecr.*"|"ParameterValue": "${{ needs.build-and-push.outputs.image-uri }}"|' infracode/dev.json
 
       - name: Deploy CloudFormation stack (dev)
         run: |
@@ -90,7 +94,6 @@ jobs:
             --stack-name videostream-dev \
             --template-file infracode/stack.yml \
             --parameter-overrides file://infracode/dev.json \
-              ContainerImage="${{ needs.build-and-push.outputs.image-uri }}" \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --no-fail-on-empty-changeset
       - name: Wait for ECS service to stabilise
@@ -115,13 +118,16 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Inject image URI into parameter file
+        run: |
+          sed -i 's|"ParameterValue": ".*ecr.*"|"ParameterValue": "${{ needs.build-and-push.outputs.image-uri }}"|' infracode/stag.json
+      
       - name: Deploy CloudFormation stack (staging)
         run: |
           aws cloudformation deploy \
             --stack-name videostream-stag \
             --template-file infracode/stack.yml \
             --parameter-overrides file://infracode/stag.json \
-              ContainerImage="${{ needs.build-and-push.outputs.image-uri }}" \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --no-fail-on-empty-changeset
 
