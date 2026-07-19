@@ -588,8 +588,6 @@ Resources:
           Environment:
             - Name: ENV
               Value: !Ref Environment
-            - Name: DB_HOST
-              Value: !GetAtt RDSDBInstance.Endpoint.Address
             - Name: DB_PORT
               Value: '5432'
             - Name: DB_NAME
