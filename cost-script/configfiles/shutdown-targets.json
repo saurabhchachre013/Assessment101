@@ -1,0 +1,10 @@
+{
+    "Targets": [
+        {
+            "Id": "Idb36cf7b2-0ebf-4643-bf43-c4d449ae4211",
+            "Arn": "arn:aws:lambda:us-east-1:414772274895:function:videostream-cost-scheduling",
+            "RoleArn": "arn:aws:iam::414772274895:role/service-role/Amazon_EventBridge_Invoke_Lambda_390262822",
+            "Input": "{\"SCHEDULE_ACTION\": \"shutdown\"}"
+        }
+    ]
+}

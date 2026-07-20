@@ -1,0 +1,9 @@
+{
+    "Name": "videostream-scheduled-startup",
+    "Arn": "arn:aws:events:us-east-1:414772274895:rule/videostream-scheduled-startup",
+    "ScheduleExpression": "cron(30 2 * * ? *)",
+    "State": "ENABLED",
+    "Description": "",
+    "EventBusName": "default",
+    "CreatedBy": "414772274895"
+}

@@ -1,0 +1,4 @@
+{
+    "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"default\",\"Statement\":[{\"Sid\":\"AllowShutdownRule\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"lambda:InvokeFunction\",\"Resource\":\"arn:aws:lambda:us-east-1:414772274895:function:videostream-cost-scheduling\",\"Condition\":{\"ArnLike\":{\"AWS:SourceArn\":\"arn:aws:events:us-east-1:414772274895:rule/videostream-scheduled-shutdown\"}}},{\"Sid\":\"AllowStartupRule\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"lambda:InvokeFunction\",\"Resource\":\"arn:aws:lambda:us-east-1:414772274895:function:videostream-cost-scheduling\",\"Condition\":{\"ArnLike\":{\"AWS:SourceArn\":\"arn:aws:events:us-east-1:414772274895:rule/videostream-scheduled-startup\"}}}]}",
+    "RevisionId": "5d0af0b8-6fa5-4a7f-98c6-2719e9d58503"
+}

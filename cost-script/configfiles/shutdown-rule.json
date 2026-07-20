@@ -1,0 +1,9 @@
+{
+    "Name": "videostream-scheduled-shutdown",
+    "Arn": "arn:aws:events:us-east-1:414772274895:rule/videostream-scheduled-shutdown",
+    "ScheduleExpression": "cron(30 14 * * ? *)",
+    "State": "ENABLED",
+    "Description": "",
+    "EventBusName": "default",
+    "CreatedBy": "414772274895"
+}
