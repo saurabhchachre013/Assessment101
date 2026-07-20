@@ -1,7 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-# Transform: AWS::SecretsManager-2024-09-16
-
 Description: > 
   We are going to create an video streaming platform here. using this we are going to create following resources
   VPC,2 public and 2 private subnets, IGW, NATGateway, Security groups, Load balancer, ECS service, ECR repo, database, secrets, lambda function.
@@ -420,8 +418,8 @@ Resources:
 
   RDSDBInstance:
     Type: AWS::RDS::DBInstance
-    # DeletionPolicy: Retain
-    # UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       DBInstanceIdentifier: !Sub ${ProjectName}-${Environment}-postgres-instance
       DBName: !Sub ${ProjectName}${Environment}
