@@ -33,6 +33,7 @@ CI/CD pipeline, cost automation, and written answers.
 │   ├── tsconfig.json
 │   └── vite.config.ts
 ├── VPC.svg                            # Architecture diagram
+├── cost-flowdiagram.drawio.svg        # Cost & scaling flow diagram
 ├── written-answers.md                 # Q1–Q9, Q12, Q15, Q16
 └── README.md
 ```
@@ -112,7 +113,7 @@ every deployed artifact traces back to exactly one commit.
 
 ## 5. Cost & scaling automation (Q14)
 
-![Cost scaling flow](./cost-script/configfiles/cost-flowdiagram.svg)
+![Cost scaling flow](./cost-flowdiagram.drawio.svg)
 
 `cost-script/script101.py` runs as a Lambda function on two EventBridge schedules:
 
