@@ -146,7 +146,6 @@ regardless of what the environment variable is set to. Full detail and the
 - **Secret rotation**: `AWS::SecretsManager::RotationSchedule` was implemented; the
   AWS-hosted rotation Lambda (via the `AWS::SecretsManager-2024-09-16` transform)
   hit a nested-stack deployment issue unrelated to the application resources.
-  [CONFIRM CURRENT STATUS]
 - **Health checks** use `wget` inside the container check (not `curl`, which isn't
   present in `nginx:alpine`) — keeps the image smaller than adding a package just for
   health checks.
